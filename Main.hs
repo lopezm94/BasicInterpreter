@@ -2,6 +2,9 @@ import Ast
 import Interpreter
 
 main = do
-    print $ numEval (update (start :: (ListMap Int)) "X" 1) $ parseNumExp ["1","+","2","*","10","+","10","/","1","*","X"]
-    sample <- return "INPUT X;\nINPUT Y;\nIF X * 1 + Z > 0 + 1 OR X = 0 OR NOT 0 > Y THEN\nZ := 1 * 2;\nWHILE X > Y\nDO\nX := X - 1;\nZ := Z * Z + 5 * 40\nEND\nELIF 1 > 0 THEN\nZ := 0;\nELSE\nY := 1;\n END\nPRINT Z;"
+    sample <- return "INPUT Y;\nINPUT X;\nIF X > 0 OR X = 0 AND NOT 0 > Y THEN\nZ := 1;\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nELSE\nZ := 0;\nEND\nPRINT Z;\n"
     print $ (readCommand :: String -> Command Int) sample
+    print "With TreeMap"
+    print $ interpretCommand (start :: (TreeMap Int)) [0,4] ((readCommand :: String -> Command Int) sample)
+    print "With ListMap"
+    print $ interpretCommand (start :: (ListMap Int)) [0,4] ((readCommand :: String -> Command Int) sample)

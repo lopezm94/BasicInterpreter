@@ -1,7 +1,8 @@
 module Interpreter
 ( SymTable(..)
 , ListMap(..)
-, numEval
+, TreeMap(..)
+, interpretCommand
 ) where
 
 import Ast
@@ -60,54 +61,67 @@ instance SymTable TreeMap where
         | pass < key = Node x left (update right key val)
         | otherwise = Node x (update left key val) right
 
-
-{--
-interpretCommand :: (SymTable m, Num a, Ord a) => m a 
+interpretCommand :: (Ord a, Divisible a, SymTable m) => m a 
     -> [a] 
     -> Command a 
     -> ((Either String [a]), m a, [a])
-interpretCommand mem (x:xs) (Input var) = (Either [], update mem var x, xs)
-interpretCommand mem input (Print var) = (value mem var, mem, input)
-interpretCommand mem input (Seq []) = (Either [], mem, input)
-interpretCommand mem input (Seq (x:xs))
-    | (Either out :: [a]) <- output = concatRes out $ interpretCommand newMem inputLeft (Seq xs)
-    | (Either err :: String) <- output = (output, newMem, inputLeft)
-    where (output, newMem, inputLeft) = interpretCommand mem input xs
-interpretCommand mem input (var `Assign` numExp) = (Either [], newMem, input)
-    -- HAY que hacer handling en caso de que una variable no exista
-    where newMem = update mem var (numEval mem numExp)
-interpretCommand mem input (Cond [] []) = (Either [], mem, input)
+interpretCommand mem (x:xs) (Input var) = (Right [], update mem var x, xs)
+interpretCommand mem input (Print var)
+    | (Left err) <- eval = (Left err, mem, input)
+    | (Right val) <- eval = (Right [val], mem, input)
+    where eval = value mem var
+interpretCommand mem input (Seq []) = (Right [], mem, input)
+interpretCommand mem input (Seq (x:xs)) = seqExecute mem input x (Seq xs)
+interpretCommand mem input (var `Assign` numExp)
+    | (Left err) <- eval = (Left err, mem, input)
+    | (Right val) <- eval = (Right [], update mem var val, input)
+    where eval = numEval mem numExp
+interpretCommand mem input (Cond [] []) = (Right [], mem, input)
 interpretCommand mem input (Cond [] [y]) = interpretCommand mem input y
 interpretCommand mem input (Cond (x:xs) (y:ys))
-    | boolEval x = interpretCommand mem input y
+    | (Left err) <- cond = (Left err, mem, input)
+    | (Right True) <- cond = interpretCommand mem input y
     | otherwise = interpretCommand mem input (Cond xs ys)
-interpretCommand _ _ (Cond _ _) = error("Condicional sin cuerpo")
+    where cond = boolEval mem x
+interpretCommand _ _ (Cond _ _) = error("Conditional w/o body")
 interpretCommand mem input (Loop boolExp body)
-    | not boolEval boolExp = (Either [], mem, input)
-    | otherwise =
-        case (output) of
-        (Either out :: [a]) -> concatRes out $ interpretCommand newMem inputLeft body
-        (Either err :: String) -> (output, newMem, inputLeft)
-    where (output, newMem, inputLeft) = interpretCommand mem input body
---}
+    | (Left err) <- cond = (Left err, mem, input)
+    | (Right False) <- cond = (Right [], mem, input)
+    | otherwise = seqExecute mem input body (Loop boolExp body)
+    where cond = boolEval mem boolExp
 
---declare Either as Monad
+seqExecute :: (Ord a, Divisible a, SymTable m) => m a
+    -> [a] 
+    -> Command a
+    -> Command a
+    -> ((Either String [a]), m a, [a])
+seqExecute mem input act next =
+    let (output, actMem, actInput) = interpretCommand mem input act
+        (nextOutput, nextMem, nextInput) = interpretCommand actMem actInput next
+    in  case (output) of
+        (Left err) -> (Left err, actMem, actInput)
+        (Right _) -> (evalMonads (++) output nextOutput, nextMem, nextInput)
 
-boolEval :: SymTable m => m a -> BoolExp a -> Bool
-boolEval mem (NOT x) = 
+
+boolEval :: (Ord a, Divisible a, SymTable m) => m a -> BoolExp a -> Either String Bool
+boolEval mem (NOT x) = evalMonads (\x y -> not y) (Right True) (boolEval mem x)
+boolEval mem (x `OR` y) = evalMonads (||) (boolEval mem x) (boolEval mem y)
+boolEval mem (x `AND` y) = evalMonads (&&) (boolEval mem x) (boolEval mem y)
+boolEval mem (x `Gt` y) = evalMonads (>) (numEval mem x) (numEval mem y)
+boolEval mem (x `Eq` y) = evalMonads (==) (numEval mem x) (numEval mem y)
 
 numEval :: (Divisible a, SymTable m) => m a -> NumExp a -> Either String a
-numEval _ (Const a) = Right a
-numEval mem (Var a) = value mem a
-numEval mem (a `Minus` b) = evalMonads (-) (numEval mem a) (numEval mem b)
-numEval mem (a `Plus` b) = evalMonads (+) (numEval mem a) (numEval mem b)
-numEval mem (a `Times` b) = evalMonads (*) (numEval mem a) (numEval mem b)
-numEval mem (a `Div` b)
+numEval _ (Const x) = Right x
+numEval mem (Var x) = value mem x
+numEval mem (x `Minus` y) = evalMonads (-) (numEval mem x) (numEval mem y)
+numEval mem (x `Plus` y) = evalMonads (+) (numEval mem x) (numEval mem y)
+numEval mem (x `Times` y) = evalMonads (*) (numEval mem x) (numEval mem y)
+numEval mem (x `Div` y)
     | (Right 0) <- divisor = Left "division by zero"
-    | otherwise = evalMonads divide (numEval mem a) divisor
-    where divisor = (numEval mem b)
+    | otherwise = evalMonads divide (numEval mem x) divisor
+    where divisor = (numEval mem y)
 
-evalMonads :: Monad m => (a -> a -> a) -> m a -> m a -> m a
+evalMonads :: Monad m => (a -> a -> b) -> m a -> m a -> m b
 evalMonads f m1 m2 = do
     a <- m1
     b <- m2

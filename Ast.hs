@@ -4,7 +4,6 @@ module Ast
 , BoolExp(..)
 , NumExp(..)
 , readCommand
-, parseNumExp
 ) where
 
 
