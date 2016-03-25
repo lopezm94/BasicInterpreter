@@ -2,7 +2,12 @@ module Interpreter
 ( SymTable(..)
 , ListMap(..)
 , TreeMap(..)
+, Divisible(..)
 , interpretCommand
+, evalMonads
+, boolEval
+, numEval
+, seqExecute
 ) where
 
 import Ast
@@ -126,4 +131,3 @@ evalMonads f m1 m2 = do
     a <- m1
     b <- m2
     return $ f a b
-    
