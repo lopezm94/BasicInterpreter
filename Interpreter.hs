@@ -2,30 +2,16 @@ module Interpreter
 ( SymTable(..)
 , ListMap(..)
 , TreeMap(..)
-, Divisible(..)
 , interpretCommand
+, interpretProgram
 , evalMonads
 , boolEval
 , numEval
 , seqExecute
+, mydiv
 ) where
 
 import Ast
-
-class (Num a, Eq a) => Divisible a where
-    divide :: a -> a -> a
-
-instance Divisible Int where
-    divide a b = a `div` b
-
-instance Divisible Integer where
-    divide a b = a `div` b
-
-instance Divisible Float where
-    divide a b = a / b
-
-instance Divisible Double where
-    divide a b = a / b
 
 class SymTable m where
     start :: m a
@@ -66,7 +52,11 @@ instance SymTable TreeMap where
         | pass < key = Node x left (update right key val)
         | otherwise = Node x (update left key val) right
 
-interpretCommand :: (Ord a, Divisible a, SymTable m) => m a 
+interpretProgram :: (Num a, Ord a) => [a] -> Command a -> (Either String [a])
+interpretProgram input comms = res
+    where (res, _, _) = interpretCommand Leaf input comms 
+
+interpretCommand :: (Num a, Ord a, SymTable m) => m a 
     -> [a] 
     -> Command a 
     -> ((Either String [a]), m a, [a])
@@ -95,7 +85,7 @@ interpretCommand mem input (Loop boolExp body)
     | otherwise = seqExecute mem input body (Loop boolExp body)
     where cond = boolEval mem boolExp
 
-seqExecute :: (Ord a, Divisible a, SymTable m) => m a
+seqExecute :: (Num a, Ord a, SymTable m) => m a
     -> [a] 
     -> Command a
     -> Command a
@@ -108,14 +98,14 @@ seqExecute mem input act next =
         (Right _) -> (evalMonads (++) output nextOutput, nextMem, nextInput)
 
 
-boolEval :: (Ord a, Divisible a, SymTable m) => m a -> BoolExp a -> Either String Bool
+boolEval :: (Num a, Ord a, SymTable m) => m a -> BoolExp a -> Either String Bool
 boolEval mem (NOT x) = evalMonads (\x y -> not y) (Right True) (boolEval mem x)
 boolEval mem (x `OR` y) = evalMonads (||) (boolEval mem x) (boolEval mem y)
 boolEval mem (x `AND` y) = evalMonads (&&) (boolEval mem x) (boolEval mem y)
 boolEval mem (x `Gt` y) = evalMonads (>) (numEval mem x) (numEval mem y)
 boolEval mem (x `Eq` y) = evalMonads (==) (numEval mem x) (numEval mem y)
 
-numEval :: (Divisible a, SymTable m) => m a -> NumExp a -> Either String a
+numEval :: (Num a, Ord a, SymTable m) => m a -> NumExp a -> Either String a
 numEval _ (Const x) = Right x
 numEval mem (Var x) = value mem x
 numEval mem (x `Minus` y) = evalMonads (-) (numEval mem x) (numEval mem y)
@@ -123,7 +113,7 @@ numEval mem (x `Plus` y) = evalMonads (+) (numEval mem x) (numEval mem y)
 numEval mem (x `Times` y) = evalMonads (*) (numEval mem x) (numEval mem y)
 numEval mem (x `Div` y)
     | (Right 0) <- divisor = Left "division by zero"
-    | otherwise = evalMonads divide (numEval mem x) divisor
+    | otherwise = evalMonads mydiv (numEval mem x) divisor
     where divisor = (numEval mem y)
 
 evalMonads :: Monad m => (a -> a -> b) -> m a -> m a -> m b
@@ -131,3 +121,16 @@ evalMonads f m1 m2 = do
     a <- m1
     b <- m2
     return $ f a b
+    
+mydiv :: (Num a, Ord a) => a -> a -> a
+mydiv x y = 
+    let
+        absx = abs x
+        absy = abs y
+        sign = (signum x) * (signum y)
+        zero = x-x
+        unit = abs (signum y)
+    in  sign * (mycount zero unit $ takeWhile (absy<=) $ iterate (flip (-) absy) absx)
+
+mycount  :: (Num a, Ord a) => a -> a -> [a] -> a
+mycount zero unit list = foldl (\acc _ -> acc+unit) zero list

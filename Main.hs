@@ -27,3 +27,5 @@ main = do
     print $ interpretCommand (start :: (TreeMap Int)) [0,4] ((readCommand :: String -> Command Int) sample)
     print "With ListMap"
     print $ interpretCommand (start :: (ListMap Int)) [0,4] ((readCommand :: String -> Command Int) sample)
+    print "With interpretProgram"
+    print $ interpretProgram [0,4] ((readCommand :: String -> Command Int) sample)

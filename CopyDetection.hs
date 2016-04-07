@@ -61,8 +61,11 @@ expand (Loop cond body) = Loop cond $ expand body
 expand command = command
 
 simplify :: Command a -> Command a
-simplify = trulySimplify . eraseInstructions . fixFormat
+simplify command = foldr injectInto (Seq []) list
+    where (Seq list) = eraseInstructions $ fixFormat command
+--simplify = trulySimplify . eraseInstructions . fixFormat
 
+{--
 trulySimplify :: Command a -> Command a
 trulySimplify (Seq []) = Seq []
 trulySimplify (Seq list) = foldr injectInto ultimo $ init list
@@ -70,7 +73,7 @@ trulySimplify (Seq list) = foldr injectInto ultimo $ init list
 trulySimplify (Loop cond body) = Loop cond $ trulySimplify body
 trulySimplify (Cond conds bodies) = Cond conds $ map trulySimplify bodies
 trulySimplify _ = error ("Something went wrong")
-
+--}
 --Transform to a format understandable for erase and inject functions
 fixFormat :: Command a -> Command a
 fixFormat (Seq []) = Seq []
