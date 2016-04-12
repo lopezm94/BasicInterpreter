@@ -4,7 +4,7 @@ import CopyDetection
 
 main = do
     
-    sample <- return "INPUT Y;\nINPUT X;\nIF X > 0 OR X = 0 AND NOT 0 > Y THEN\nZ := 1;\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nELSE\nZ := 0;\nEND\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nPRINT Z;\n"
+    sample <- return "INPUT Y;\nINPUT X;\nIF X > 0 OR X = 0 AND NOT 0 > Y THEN\nZ := 1;\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nELSE\nZ := 0;\nEND\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nPRINT Z;\nY := 10 / 6;\n"
     sample2 <- return "INPUT Y;\nINPUT X;\nIF X > 0 OR X = 0 AND NOT 0 > Y THEN\nZ := 1;\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nELSE\nZ := 0;\nWHILE X > Y\nDO\nZ := Z * X;\nX := X - 1\nEND\nEND\nPRINT Z;\n"
     print $ (readCommand :: String -> Command Int) sample
     

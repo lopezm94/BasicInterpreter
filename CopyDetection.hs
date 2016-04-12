@@ -42,39 +42,15 @@ expand (Cond [cond] [body, bodyElse])
         in  Cond [a] [newBody]
     | otherwise = Cond [cond] [expandedBody]
     where expandedBody = expand body
-{--This adds ELIF support, must remove the previous 2 expands to make it work
-expand (Cond [] [body]) = Cond [] [expand body]
-expand (Cond [x] [body])
-    | (a `OR` b) <- x =
-        let (Cond nextCond bodies) = expand $ Cond [b] [expand body]
-        in  Cond (a:nextCond) ((expand body):bodies)
-    | (a `AND` b) <- x =
-        let newBody = Seq $ [expand (Cond [b] [expand body])]
-        in  Cond [a] [newBody]
-    | otherwise = Cond [x] [expand body]
-expand (Cond (x:xs) (y:ys)) = 
-    let (Cond thisCond thisBody) = expand $ Cond [x] [y]
-        (Cond restCond restBody) = expand $ Cond xs ys
-    in  Cond (thisCond ++ restCond) (thisBody ++ restBody)
---}
+
 expand (Loop cond body) = Loop cond $ expand body
 expand command = command
 
 simplify :: Command a -> Command a
 simplify command = foldr injectInto (Seq []) list
     where (Seq list) = eraseInstructions $ fixFormat command
---simplify = trulySimplify . eraseInstructions . fixFormat
 
-{--
-trulySimplify :: Command a -> Command a
-trulySimplify (Seq []) = Seq []
-trulySimplify (Seq list) = foldr injectInto ultimo $ init list
-    where ultimo = trulySimplify $ last list
-trulySimplify (Loop cond body) = Loop cond $ trulySimplify body
-trulySimplify (Cond conds bodies) = Cond conds $ map trulySimplify bodies
-trulySimplify _ = error ("Something went wrong")
---}
---Transform to a format understandable for erase and inject functions
+--Transform to a format understood by erase and inject functions
 fixFormat :: Command a -> Command a
 fixFormat (Seq []) = Seq []
 fixFormat (Seq (x:rest))
